@@ -20,7 +20,8 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
 
     useEffect(() => {
         // Initialize Media
-        navigator.mediaDevices.getUserMedia({ video: callType === 'video', audio: true })
+        const videoConstraints = callType === 'video' ? { facingMode: 'user' } : false;
+        navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true })
             .then((stream) => {
                 setLocalStream(stream);
                 if (localVideoRef.current) {
@@ -197,7 +198,7 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
     return (
         <div className="video-modal-overlay">
             <div className="video-modal-content">
-                <div className="video-grid" style={{ display: callType === 'video' ? 'flex' : 'none' }}>
+                <div className={`video-grid ${callAccepted && !callEnded ? 'connected' : ''}`} style={{ display: callType === 'video' ? 'flex' : 'none' }}>
                     {/* Local Video */}
                     <div className="video-wrapper local-video">
                         <video playsInline muted ref={localVideoRef} autoPlay />

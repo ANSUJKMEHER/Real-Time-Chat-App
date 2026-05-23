@@ -877,6 +877,14 @@ body {
   .message {
     max-width: 85%;
   }
+
+  .video-grid.connected .local-video {
+    width: 100px;
+    height: 140px;
+    bottom: 5rem;
+    right: 1rem;
+    border-radius: 0.5rem;
+  }
 }
 
 /* ===== VIDEO CALL MODAL ===== */
@@ -945,7 +953,7 @@ body {
 }
 
 /* Picture-in-Picture mode for local video when connected */
-.video-grid:has(.remote-video) .local-video {
+.video-grid.connected .local-video {
   position: absolute;
   bottom: 1.5rem;
   right: 1.5rem;
