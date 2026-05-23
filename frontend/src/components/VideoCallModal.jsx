@@ -12,6 +12,7 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
     const connectionRef = useRef(null);
+    const streamRef = useRef(null);
 
     // Call status: 'idle', 'calling', 'receiving', 'connected'
     const [status, setStatus] = useState(
@@ -24,6 +25,7 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
         navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true })
             .then((stream) => {
                 setLocalStream(stream);
+                streamRef.current = stream;
                 if (localVideoRef.current) {
                     localVideoRef.current.srcObject = stream;
                 }
@@ -69,8 +71,8 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
             socket.off('ice_candidate');
             socket.off('call_ended');
             socket.off('call_rejected');
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
             }
             if (connectionRef.current) {
                 connectionRef.current.close();
@@ -172,8 +174,9 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
             connectionRef.current = null;
         }
 
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
         }
 
         onClose();
