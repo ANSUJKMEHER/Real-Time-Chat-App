@@ -104,6 +104,7 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
             remoteVideoRef.current.srcObject = remoteStream;
+            remoteVideoRef.current.play().catch(e => console.warn('Play error:', e));
         }
     }, [remoteStream, callAccepted]);
 
@@ -111,16 +112,33 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
         const peer = new RTCPeerConnection({
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' }
+                { urls: 'stun:global.stun.twilio.com:3478' },
+                { 
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                { 
+                    urls: 'turn:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                { 
+                    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
             ]
         });
 
         connectionRef.current = peer;
 
         // Add local stream tracks to peer connection
-        stream.getTracks().forEach(track => {
-            peer.addTrack(track, stream);
-        });
+        if (stream) {
+            stream.getTracks().forEach(track => {
+                peer.addTrack(track, stream);
+            });
+        }
 
         // Handle incoming ICE candidates
         peer.onicecandidate = (event) => {
