@@ -846,17 +846,36 @@ body {
   background-color: rgba(212, 97, 90, 0.1);
 }
 
+.mobile-back-btn {
+  display: none;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
+  .mobile-back-btn {
+    display: flex;
+  }
+
   .sidebar {
     width: 100%;
     min-width: 100%;
   }
-  .dashboard {
-    flex-direction: column;
+  
+  .chat-area {
+    display: none;
+    width: 100%;
   }
+
+  .dashboard.chat-active .sidebar {
+    display: none;
+  }
+
+  .dashboard.chat-active .chat-area {
+    display: flex;
+  }
+
   .message {
-    max-width: 80%;
+    max-width: 85%;
   }
 }
 

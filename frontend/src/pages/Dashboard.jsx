@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ThemeContext } from '../App';
 import api from '../services/api';
 import { socket } from '../services/socket';
-import { LogOut, Send, MessageSquare, Users, Bell, User as UserIcon, Smile, UserPlus, Sun, Moon, MoreVertical, Phone, Video } from 'lucide-react';
+import { LogOut, Send, MessageSquare, Users, Bell, User as UserIcon, Smile, UserPlus, Sun, Moon, MoreVertical, Phone, Video, ArrowLeft } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import VideoCallModal from '../components/VideoCallModal';
 
@@ -298,7 +298,7 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="dashboard">
+        <div className={`dashboard ${selectedChat ? 'chat-active' : ''}`}>
             {showVideoCall && (
                 <VideoCallModal 
                     user={user}
@@ -404,8 +404,13 @@ const Dashboard = () => {
                 {selectedChat ? (
                     <>
                         <div className="chat-header">
-                            <div style={{ fontWeight: 600, fontSize: '1.1rem', letterSpacing: '-0.01em' }}>
-                                {getChatName(selectedChat)}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <button className="mobile-back-btn icon-btn" onClick={() => setSelectedChat(null)} style={{ padding: '0.2rem', marginLeft: '-0.5rem' }}>
+                                    <ArrowLeft size={20} />
+                                </button>
+                                <div style={{ fontWeight: 600, fontSize: '1.1rem', letterSpacing: '-0.01em' }}>
+                                    {getChatName(selectedChat)}
+                                </div>
                             </div>
                             {!selectedChat.isGroup && (
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
