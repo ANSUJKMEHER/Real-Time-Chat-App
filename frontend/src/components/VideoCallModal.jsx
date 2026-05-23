@@ -100,6 +100,13 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
         };
     }, []);
 
+    // Sync remote stream to video element whenever either becomes available
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [remoteStream, callAccepted]);
+
     const createPeerConnection = (stream, isInitiator, remoteId) => {
         const peer = new RTCPeerConnection({
             iceServers: [
@@ -242,16 +249,16 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
             <div className="video-modal-content">
                 {/* Video Call Grid */}
                 <div className={`video-grid ${callAccepted && !callEnded ? 'connected' : ''}`} style={{ display: callType === 'video' ? 'flex' : 'none' }}>
+                    {/* Remote Video — always rendered so the ref is available for ontrack */}
+                    <div className="video-wrapper remote-video" style={{ display: callAccepted && !callEnded ? 'flex' : 'none' }}>
+                        <video playsInline ref={remoteVideoRef} autoPlay />
+                        <div className="video-label">{remoteName}</div>
+                    </div>
+                    {/* Local Video */}
                     <div className="video-wrapper local-video">
                         <video playsInline muted ref={localVideoRef} autoPlay />
                         <div className="video-label">You</div>
                     </div>
-                    {callAccepted && !callEnded && (
-                        <div className="video-wrapper remote-video">
-                            <video playsInline ref={remoteVideoRef} autoPlay />
-                            <div className="video-label">{remoteName}</div>
-                        </div>
-                    )}
                 </div>
 
                 {/* Audio Call UI */}
