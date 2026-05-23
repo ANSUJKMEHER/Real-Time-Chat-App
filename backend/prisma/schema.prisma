@@ -3,22 +3,20 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-}
+
 
 model User {
   id         String   @id @default(uuid())
+  username   String   @unique
   name       String
   email      String   @unique
   password   String
   profilePic String?  @default("https://icon-library.com/images/anonymous-avatar-icon/anonymous-avatar-icon-25.jpg")
-  role       Role     @default(USER)
+  role       String   @default("USER")
   createdAt  DateTime @default(now())
   
   chatMembers     ChatMember[]
@@ -27,17 +25,13 @@ model User {
   receivedRequests ChatRequest[] @relation("ReceivedRequests")
 }
 
-enum RequestStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}
+
 
 model ChatRequest {
   id         String   @id @default(uuid())
   senderId   String
   receiverId String
-  status     RequestStatus @default(PENDING)
+  status     String   @default("PENDING")
   createdAt  DateTime @default(now())
 
   sender     User     @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)

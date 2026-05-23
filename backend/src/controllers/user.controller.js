@@ -3,11 +3,14 @@ const AppError = require('../utils/errors');
 
 exports.allUsers = async (req, res, next) => {
     try {
-        const keyword = req.query.search
+        const search = req.query.search || '';
+
+        const keyword = search
             ? {
                 OR: [
-                    { name: { contains: req.query.search, mode: 'insensitive' } },
-                    { email: { contains: req.query.search, mode: 'insensitive' } },
+                    { name: { contains: search } },
+                    { email: { contains: search } },
+                    { username: { contains: search } },
                 ],
             }
             : {};
@@ -20,6 +23,7 @@ exports.allUsers = async (req, res, next) => {
             select: {
                 id: true,
                 name: true,
+                username: true,
                 email: true,
                 profilePic: true
             }
@@ -42,7 +46,7 @@ exports.updateProfile = async (req, res, next) => {
         const updatedUser = await prisma.user.update({
             where: { id: req.user.id },
             data: { profilePic },
-            select: { id: true, name: true, email: true, profilePic: true, role: true }
+            select: { id: true, name: true, username: true, email: true, profilePic: true, role: true }
         });
 
         res.status(200).json({ success: true, data: updatedUser });

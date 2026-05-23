@@ -49,6 +49,8 @@ const io = new Server(server, {
 // Setup socket io logic
 require('./socket')(io);
 
+app.set('io', io);
+
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

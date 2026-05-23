@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { ThemeContext } from '../App';
 import api from '../services/api';
 import { socket } from '../services/socket';
-import { LogOut, Send, MessageSquare, Users, PlusCircle, Bell, User as UserIcon, Smile, UserPlus } from 'lucide-react';
+import { LogOut, Send, MessageSquare, Users, Bell, User as UserIcon, Smile, UserPlus, Sun, Moon, MoreVertical, Phone, Video } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
+import VideoCallModal from '../components/VideoCallModal';
 
 const Dashboard = () => {
     const { user, logout } = useContext(AuthContext);
+    const { theme, toggleTheme } = useContext(ThemeContext);
     const [chats, setChats] = useState([]);
     const [selectedChat, setSelectedChat] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -15,6 +18,13 @@ const Dashboard = () => {
     const [typing, setTyping] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
     const [socketConnected, setSocketConnected] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
+
+    // Video/Voice Call state
+    const [incomingCall, setIncomingCall] = useState(null);
+    const [showVideoCall, setShowVideoCall] = useState(false);
+    const [callingUser, setCallingUser] = useState(null);
+    const [callType, setCallType] = useState('video'); // 'video' or 'audio'
 
     // Modals & Feature state
     const [showUsersModal, setShowUsersModal] = useState(false);
@@ -41,10 +51,24 @@ const Dashboard = () => {
         socket.emit('setup', user);
         socket.on('connected', () => setSocketConnected(true));
         socket.on('online_users', (users) => setOnlineUsers(users));
+        
+        // Listen for real-time chat updates
+        socket.on('fetch_chats', () => {
+            fetchChats();
+        });
+
+        // Listen for incoming calls
+        socket.on('call_user', (data) => {
+            setIncomingCall(data);
+            setCallType(data.callType || 'video');
+            setShowVideoCall(true);
+        });
 
         return () => {
             socket.off('connected');
             socket.off('online_users');
+            socket.off('fetch_chats');
+            socket.off('call_user');
         };
     }, [user]);
 
@@ -88,24 +112,26 @@ const Dashboard = () => {
     }, [selectedChat]);
 
     useEffect(() => {
-        socket.on('message_received', (newMessageReceived) => {
+        const messageHandler = (newMessageReceived) => {
             if (!selectedChat || selectedChat.id !== newMessageReceived.chatId) {
                 // Notification logic could go here
                 fetchChats(); // Update last message in sidebar
             } else {
-                setMessages([...messages, newMessageReceived]);
+                setMessages(prev => [...prev, newMessageReceived]);
             }
-        });
+        };
+
+        socket.on('message_received', messageHandler);
 
         socket.on('typing', () => setIsTyping(true));
         socket.on('stop_typing', () => setIsTyping(false));
 
         return () => {
-            socket.off('message_received');
+            socket.off('message_received', messageHandler);
             socket.off('typing');
             socket.off('stop_typing');
         };
-    }, [selectedChat, messages]);
+    }, [selectedChat]);
 
     useEffect(() => {
         endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -250,39 +276,95 @@ const Dashboard = () => {
         }
     };
 
+    // Close menu if clicked outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (!e.target.closest('.dropdown-container')) {
+                setShowMenu(false);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+    const startCall = (type) => {
+        if (!selectedChat || selectedChat.isGroup) return;
+        const otherMember = selectedChat.members.find(m => m.userId !== user.id);
+        if (otherMember) {
+            setCallType(type);
+            setCallingUser(otherMember.user);
+            setShowVideoCall(true);
+        }
+    };
+
     return (
         <div className="dashboard">
+            {showVideoCall && (
+                <VideoCallModal 
+                    user={user}
+                    socket={socket}
+                    callData={incomingCall}
+                    remoteUser={callingUser}
+                    callType={callType}
+                    onClose={() => {
+                        setShowVideoCall(false);
+                        setIncomingCall(null);
+                        setCallingUser(null);
+                    }}
+                />
+            )}
+            
             <div className="sidebar">
                 <div className="sidebar-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                         {user.profilePic ? (
-                            <img src={user.profilePic} alt="avatar" style={{ width: 35, height: 35, borderRadius: '50%', objectFit: 'cover' }} />
+                            <img src={user.profilePic} alt="avatar" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
                         ) : (
-                            <div className="user-avatar" style={{ width: 35, height: 35, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                            <div className="user-avatar">
                                 {user.name.charAt(0).toUpperCase()}
                             </div>
                         )}
-                        <span>{user.name}</span>
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: '0.95rem', lineHeight: 1.2 }}>{user.name}</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>@{user.username}</div>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.25rem' }}>
-                        <button onClick={() => { setShowGroupModal(true); setSearchQuery(''); setSearchResult([]); }} className="logout-btn" title="Create Group">
-                            <Users size={20} />
-                        </button>
-                        <button onClick={() => { setShowUsersModal(true); setSearchQuery(''); setSearchResult([]); }} className="logout-btn" title="Add Friend">
-                            <UserPlus size={20} />
-                        </button>
-                        <button onClick={() => setShowRequestsModal(true)} className="logout-btn" title="Requests" style={{ position: 'relative' }}>
-                            <Bell size={20} />
+                    <div className="sidebar-actions">
+                        <button onClick={() => setShowRequestsModal(true)} className="icon-btn" title="Requests" style={{ position: 'relative' }}>
+                            <Bell size={18} />
                             {pendingRequests.length > 0 && (
-                                <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--danger)', borderRadius: '50%', width: '10px', height: '10px' }}></span>
+                                <span className="badge"></span>
                             )}
                         </button>
-                        <button onClick={() => setShowProfileModal(true)} className="logout-btn" title="Profile">
-                            <UserIcon size={20} />
+                        <button onClick={() => setShowProfileModal(true)} className="icon-btn" title="Profile">
+                            <UserIcon size={18} />
                         </button>
-                        <button onClick={logout} className="logout-btn" title="Logout">
-                            <LogOut size={20} />
-                        </button>
+
+                        {/* Three Dots Menu */}
+                        <div className="dropdown-container" style={{ position: 'relative' }}>
+                            <button onClick={() => setShowMenu(!showMenu)} className="icon-btn" title="More Options">
+                                <MoreVertical size={18} />
+                            </button>
+                            
+                            {showMenu && (
+                                <div className="dropdown-menu">
+                                    <div className="dropdown-item" onClick={() => { setShowGroupModal(true); setSearchQuery(''); setSearchResult([]); setShowMenu(false); }}>
+                                        <Users size={16} /> Create Group
+                                    </div>
+                                    <div className="dropdown-item" onClick={() => { setShowUsersModal(true); setSearchQuery(''); setSearchResult([]); setShowMenu(false); }}>
+                                        <UserPlus size={16} /> Add Friend
+                                    </div>
+                                    <div className="dropdown-item" onClick={() => { toggleTheme(); setShowMenu(false); }}>
+                                        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />} 
+                                        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                                    </div>
+                                    <div className="dropdown-divider"></div>
+                                    <div className="dropdown-item danger" onClick={logout}>
+                                        <LogOut size={16} /> Logout
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -293,9 +375,9 @@ const Dashboard = () => {
                             className={`chat-item ${selectedChat?.id === chat.id ? 'active' : ''}`}
                             onClick={() => setSelectedChat(chat)}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {chat.isGroup ? <Users size={20} /> : <MessageSquare size={20} />}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                <div className="chat-icon">
+                                    {chat.isGroup ? <Users size={18} /> : <MessageSquare size={18} />}
                                 </div>
                                 <div style={{ flex: 1, overflow: 'hidden' }}>
                                     <div className="chat-name">{getChatName(chat)}</div>
@@ -309,8 +391,10 @@ const Dashboard = () => {
                         </div>
                     ))}
                     {chats.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                            No chats yet.<br />Start a conversation!
+                        <div style={{ textAlign: 'center', padding: '3rem 1.5rem', color: 'var(--text-muted)' }}>
+                            <MessageSquare size={32} style={{ marginBottom: '0.75rem', opacity: 0.4 }} />
+                            <div style={{ fontSize: '0.9rem' }}>No chats yet.</div>
+                            <div style={{ fontSize: '0.82rem', marginTop: '0.25rem' }}>Start a conversation!</div>
                         </div>
                     )}
                 </div>
@@ -320,9 +404,19 @@ const Dashboard = () => {
                 {selectedChat ? (
                     <>
                         <div className="chat-header">
-                            <div style={{ fontWeight: 600, fontSize: '1.2rem' }}>
+                            <div style={{ fontWeight: 600, fontSize: '1.1rem', letterSpacing: '-0.01em' }}>
                                 {getChatName(selectedChat)}
                             </div>
+                            {!selectedChat.isGroup && (
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button onClick={() => startCall('audio')} className="icon-btn" title="Voice Call">
+                                        <Phone size={18} />
+                                    </button>
+                                    <button onClick={() => startCall('video')} className="icon-btn" title="Video Call">
+                                        <Video size={18} />
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="messages-container">
@@ -351,15 +445,14 @@ const Dashboard = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                    className="send-btn"
-                                    style={{ backgroundColor: 'var(--bg-input)' }}
+                                    className="emoji-btn"
                                 >
                                     <Smile size={20} />
                                 </button>
                                 {showEmojiPicker && (
                                     <div style={{ position: 'absolute', bottom: '100%', left: 0, zIndex: 50, marginBottom: '0.5rem' }}>
                                         <EmojiPicker
-                                            theme="dark"
+                                            theme={theme}
                                             onEmojiClick={(emojiData) => {
                                                 setNewMessage(prev => prev + emojiData.emoji);
                                                 setShowEmojiPicker(false);
@@ -374,88 +467,95 @@ const Dashboard = () => {
                                     onChange={typingHandler}
                                 />
                                 <button type="submit" className="send-btn" disabled={!newMessage.trim()}>
-                                    <Send size={20} />
+                                    <Send size={18} />
                                 </button>
                             </form>
                         </div>
                     </>
                 ) : (
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                        <MessageSquare size={64} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                    <div className="empty-state">
+                        <MessageSquare size={56} style={{ opacity: 0.3 }} />
                         <h2>Select a chat to start messaging</h2>
+                        <p>Pick a conversation from the sidebar</p>
                     </div>
                 )}
             </div>
 
+            {/* Add Friend Modal */}
             {showUsersModal && (
                 <div className="users-dialog" onClick={() => setShowUsersModal(false)}>
                     <div className="users-card" onClick={e => e.stopPropagation()}>
-                        <h3 style={{ marginBottom: '1rem' }}>Start New Chat</h3>
+                        <h3 style={{ marginBottom: '1.25rem' }}>Start New Chat</h3>
                         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
                             <input
                                 type="text"
-                                placeholder="Search by name or email"
+                                placeholder="Search by name, email or @username"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)', color: '#fff' }}
+                                className="modal-input"
+                                style={{ flex: 1 }}
                             />
-                            <button onClick={handleSearch} className="btn-primary" style={{ width: 'auto', padding: '0.5rem 1rem' }}>
+                            <button onClick={() => handleSearch()} className="modal-btn primary">
                                 {searchLoading ? '...' : 'Go'}
                             </button>
                         </div>
                         <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                             {searchResult.map(u => (
-                                <div key={u.id} className="chat-item" style={{ borderRadius: '0.5rem', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'default' }}>
+                                <div key={u.id} className="modal-user-item">
                                     <div>
-                                        <div style={{ fontWeight: 'bold' }}>{u.name}</div>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{u.email}</div>
+                                        <div className="user-name">{u.name}</div>
+                                        <div className="user-email">@{u.username} · {u.email}</div>
                                     </div>
-                                    <button onClick={() => sendChatRequest(u.id)} className="btn-primary" style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
+                                    <button onClick={() => sendChatRequest(u.id)} className="modal-btn primary">
                                         Add
                                     </button>
                                 </div>
                             ))}
                             {searchResult.length === 0 && !searchLoading && searchQuery && (
-                                <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '1rem' }}>No users found</div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-            {showRequestsModal && (
-                <div className="users-dialog" onClick={() => setShowRequestsModal(false)}>
-                    <div className="users-card" onClick={e => e.stopPropagation()}>
-                        <h3 style={{ marginBottom: '1rem' }}>Pending Requests</h3>
-                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                            {pendingRequests.map(req => (
-                                <div key={req.id} className="chat-item" style={{ borderRadius: '0.5rem', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'default' }}>
-                                    <div>
-                                        <div style={{ fontWeight: 'bold' }}>{req.sender.name}</div>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{req.sender.email}</div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <button onClick={() => handleRequestResponse(req.id, 'ACCEPTED')} className="btn-primary" style={{ width: 'auto', padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>Accept</button>
-                                        <button onClick={() => handleRequestResponse(req.id, 'REJECTED')} className="btn-primary" style={{ width: 'auto', padding: '0.3rem 0.6rem', fontSize: '0.8rem', backgroundColor: 'var(--danger)' }}>Decline</button>
-                                    </div>
-                                </div>
-                            ))}
-                            {pendingRequests.length === 0 && (
-                                <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '1rem' }}>No pending requests</div>
+                                <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '1rem', fontSize: '0.88rem' }}>No users found</div>
                             )}
                         </div>
                     </div>
                 </div>
             )}
 
+            {/* Requests Modal */}
+            {showRequestsModal && (
+                <div className="users-dialog" onClick={() => setShowRequestsModal(false)}>
+                    <div className="users-card" onClick={e => e.stopPropagation()}>
+                        <h3 style={{ marginBottom: '1.25rem' }}>Pending Requests</h3>
+                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            {pendingRequests.map(req => (
+                                <div key={req.id} className="modal-user-item">
+                                    <div>
+                                        <div className="user-name">{req.sender.name}</div>
+                                        <div className="user-email">@{req.sender.username} · {req.sender.email}</div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button onClick={() => handleRequestResponse(req.id, 'ACCEPTED')} className="modal-btn primary">Accept</button>
+                                        <button onClick={() => handleRequestResponse(req.id, 'REJECTED')} className="modal-btn danger">Decline</button>
+                                    </div>
+                                </div>
+                            ))}
+                            {pendingRequests.length === 0 && (
+                                <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '1rem', fontSize: '0.88rem' }}>No pending requests</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Profile Modal */}
             {showProfileModal && (
                 <div className="users-dialog" onClick={() => setShowProfileModal(false)}>
                     <div className="users-card" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
-                        <h3 style={{ marginBottom: '1rem' }}>Profile Settings</h3>
-                        <div style={{ marginBottom: '1rem' }}>
+                        <h3 style={{ marginBottom: '0.5rem' }}>Profile Settings</h3>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '1.25rem' }}>@{user.username}</div>
+                        <div style={{ marginBottom: '1.25rem' }}>
                             {user.profilePic ? (
-                                <img src={profilePicInput || user.profilePic} alt="preview" style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', margin: '0 auto' }} />
+                                <img src={profilePicInput || user.profilePic} alt="preview" style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', margin: '0 auto', display: 'block' }} />
                             ) : (
-                                <div style={{ width: 100, height: 100, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '2rem', margin: '0 auto' }}>
+                                <div className="user-avatar large" style={{ margin: '0 auto' }}>
                                     {user.name.charAt(0).toUpperCase()}
                                 </div>
                             )}
@@ -465,58 +565,62 @@ const Dashboard = () => {
                             placeholder="Profile Picture URL..."
                             value={profilePicInput}
                             onChange={e => setProfilePicInput(e.target.value)}
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)', color: '#fff', marginBottom: '1rem' }}
+                            className="modal-input"
+                            style={{ marginBottom: '1rem' }}
                         />
-                        <button onClick={updateProfilePic} className="btn-primary" style={{ width: '100%', padding: '0.6rem' }}>Save Profile</button>
+                        <button onClick={updateProfilePic} className="modal-btn primary" style={{ width: '100%', padding: '0.7rem' }}>Save Profile</button>
                     </div>
                 </div>
             )}
 
+            {/* Group Chat Modal */}
             {showGroupModal && (
                 <div className="users-dialog" onClick={() => setShowGroupModal(false)}>
                     <div className="users-card" onClick={e => e.stopPropagation()}>
-                        <h3 style={{ marginBottom: '1rem' }}>Create Group Chat</h3>
+                        <h3 style={{ marginBottom: '1.25rem' }}>Create Group Chat</h3>
 
                         <input
                             type="text"
                             placeholder="Group Name"
                             value={groupName}
                             onChange={e => setGroupName(e.target.value)}
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)', color: '#fff', marginBottom: '1rem' }}
+                            className="modal-input"
+                            style={{ marginBottom: '1rem' }}
                         />
 
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
                             {selectedUsers.map(u => (
-                                <div key={u.id} style={{ backgroundColor: 'var(--primary)', padding: '0.2rem 0.5rem', borderRadius: '1rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <div key={u.id} className="user-tag">
                                     {u.name}
-                                    <span onClick={() => handleRemoveUser(u)} style={{ cursor: 'pointer', fontWeight: 'bold' }}>&times;</span>
+                                    <span className="remove" onClick={() => handleRemoveUser(u)}>&times;</span>
                                 </div>
                             ))}
                         </div>
 
                         <input
                             type="text"
-                            placeholder="Add Users (Search by name or email)"
+                            placeholder="Search by name, email or @username"
                             value={searchQuery}
                             onChange={handleGroupSearch}
-                            style={{ width: '100%', flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)', color: '#fff', marginBottom: '1rem' }}
+                            className="modal-input"
+                            style={{ marginBottom: '1rem' }}
                         />
 
                         <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '1rem' }}>
                             {searchResult.slice(0, 5).map(u => (
-                                <div key={u.id} onClick={() => handleSelectUser(u)} className="chat-item" style={{ borderRadius: '0.5rem', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div key={u.id} onClick={() => handleSelectUser(u)} className="modal-user-item" style={{ cursor: 'pointer' }}>
                                     <div>
-                                        <div style={{ fontWeight: 'bold' }}>{u.name}</div>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{u.email}</div>
+                                        <div className="user-name">{u.name}</div>
+                                        <div className="user-email">@{u.username} · {u.email}</div>
                                     </div>
-                                    <button className="btn-primary" style={{ width: 'auto', padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}>
+                                    <button className="modal-btn primary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
                                         Select
                                     </button>
                                 </div>
                             ))}
                         </div>
 
-                        <button onClick={createGroupChat} className="btn-primary" style={{ width: '100%', padding: '0.6rem' }}>Create Group</button>
+                        <button onClick={createGroupChat} className="modal-btn primary" style={{ width: '100%', padding: '0.7rem' }}>Create Group</button>
                     </div>
                 </div>
             )}

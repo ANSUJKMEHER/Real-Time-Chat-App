@@ -4,6 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 
 const Register = () => {
     const [name, setName] = useState('');
+    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -12,13 +13,25 @@ const Register = () => {
     const { register } = useContext(AuthContext);
     const navigate = useNavigate();
 
+    const handleUsernameChange = (e) => {
+        // Only allow lowercase alphanumeric and underscores
+        const value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+        setUsername(value);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
 
+        if (username.length < 3) {
+            setError('Username must be at least 3 characters');
+            setIsLoading(false);
+            return;
+        }
+
         try {
-            await register(name, email, password);
+            await register(name, username, email, password);
             navigate('/');
         } catch (err) {
             setError(err.response?.data?.error || 'Registration failed. Please try again.');
@@ -44,6 +57,18 @@ const Register = () => {
                             onChange={(e) => setName(e.target.value)}
                             required
                             placeholder="John Doe"
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Username</label>
+                        <input
+                            type="text"
+                            value={username}
+                            onChange={handleUsernameChange}
+                            required
+                            minLength="3"
+                            maxLength="20"
+                            placeholder="john_doe"
                         />
                     </div>
                     <div className="form-group">

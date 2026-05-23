@@ -11,10 +11,16 @@ const generateToken = (id) => {
 
 exports.register = async (req, res, next) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, username, email, password } = req.body;
 
-        if (!name || !email || !password) {
-            return next(new AppError('Please provide name, email and password', 400));
+        if (!name || !username || !email || !password) {
+            return next(new AppError('Please provide name, username, email and password', 400));
+        }
+
+        // Validate username format (alphanumeric + underscores, 3-20 chars)
+        const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+        if (!usernameRegex.test(username)) {
+            return next(new AppError('Username must be 3-20 characters, only letters, numbers and underscores', 400));
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -23,12 +29,14 @@ exports.register = async (req, res, next) => {
         const user = await prisma.user.create({
             data: {
                 name,
+                username: username.toLowerCase(),
                 email,
                 password: hashedPassword,
             },
             select: {
                 id: true,
                 name: true,
+                username: true,
                 email: true,
                 role: true,
                 profilePic: true
@@ -74,6 +82,7 @@ exports.login = async (req, res, next) => {
         const safeUser = {
             id: user.id,
             name: user.name,
+            username: user.username,
             email: user.email,
             role: user.role,
             profilePic: user.profilePic
@@ -93,7 +102,7 @@ exports.getMe = async (req, res, next) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
-            select: { id: true, name: true, email: true, role: true, profilePic: true }
+            select: { id: true, name: true, username: true, email: true, role: true, profilePic: true }
         });
 
         res.status(200).json({

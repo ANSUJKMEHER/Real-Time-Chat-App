@@ -38,8 +38,8 @@ export const AuthProvider = ({ children }) => {
         connectSocket();
     };
 
-    const register = async (name, email, password) => {
-        const { data } = await api.post('/auth/register', { name, email, password });
+    const register = async (name, username, email, password) => {
+        const { data } = await api.post('/auth/register', { name, username, email, password });
         localStorage.setItem('token', data.token);
         setUser(data.data);
         connectSocket();

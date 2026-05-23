@@ -125,6 +125,16 @@ exports.createGroupChat = async (req, res, next) => {
             }
         });
 
+        // Notify all members via socket so their UI updates
+        const io = req.app.get('io');
+        if (io) {
+            users.forEach(userId => {
+                io.to(userId).emit('fetch_chats');
+            });
+            // You could optionally emit to currentUserId as well, 
+            // but the creator's UI is updated locally via the React state.
+        }
+
         res.status(200).json({ success: true, data: groupChat });
     } catch (error) {
         next(error);

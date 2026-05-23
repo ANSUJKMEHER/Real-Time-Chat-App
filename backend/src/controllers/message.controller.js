@@ -17,7 +17,7 @@ exports.sendMessage = async (req, res, next) => {
             },
             include: {
                 sender: { select: { id: true, name: true } },
-                chat: true
+                chat: { include: { members: true } }
             }
         });
 

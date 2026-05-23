@@ -126,6 +126,13 @@ exports.respondToRequest = async (req, res, next) => {
                     }
                 }
             });
+
+            // Notify the sender so their sidebar updates in real-time
+            const io = req.app.get('io');
+            if (io) {
+                // In our setup, a user joins a room with their userId
+                io.to(request.senderId).emit('fetch_chats');
+            }
         }
 
         res.status(200).json({ success: true, data: updatedRequest });
