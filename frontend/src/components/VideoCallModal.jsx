@@ -13,6 +13,18 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
     const remoteVideoRef = useRef(null);
     const connectionRef = useRef(null);
     const streamRef = useRef(null);
+    const pendingCandidates = useRef([]);
+
+    // Helper to process queued ICE candidates
+    const flushIceCandidates = () => {
+        if (connectionRef.current && connectionRef.current.remoteDescription) {
+            pendingCandidates.current.forEach(candidate => {
+                connectionRef.current.addIceCandidate(new RTCIceCandidate(candidate))
+                    .catch(e => console.error("Error adding queued ice candidate", e));
+            });
+            pendingCandidates.current = [];
+        }
+    };
 
     // Call status: 'idle', 'calling', 'receiving', 'connected'
     const [status, setStatus] = useState(
@@ -42,18 +54,21 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
             });
 
         // Socket listeners
-        socket.on('call_accepted', (signal) => {
+        socket.on('call_accepted', async (signal) => {
             setCallAccepted(true);
             setStatus('connected');
             if (connectionRef.current) {
-                connectionRef.current.setRemoteDescription(new RTCSessionDescription(signal));
+                await connectionRef.current.setRemoteDescription(new RTCSessionDescription(signal));
+                flushIceCandidates();
             }
         });
 
         socket.on('ice_candidate', (candidate) => {
-            if (connectionRef.current) {
+            if (connectionRef.current && connectionRef.current.remoteDescription) {
                 connectionRef.current.addIceCandidate(new RTCIceCandidate(candidate))
                     .catch(e => console.error("Error adding ice candidate", e));
+            } else {
+                pendingCandidates.current.push(candidate);
             }
         });
 
@@ -139,10 +154,12 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
         setCallAccepted(true);
         setStatus('connected');
 
-        const peer = createPeerConnection(localStream, false, callData.from);
+        const peer = createPeerConnection(streamRef.current, false, callData.from);
 
         try {
             await peer.setRemoteDescription(new RTCSessionDescription(callData.signal));
+            flushIceCandidates();
+            
             const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
 
