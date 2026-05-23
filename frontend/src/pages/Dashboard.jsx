@@ -440,7 +440,12 @@ const Dashboard = () => {
                                 );
                             })}
                             {isTyping && (
-                                <div className="typing-indicator">Someone is typing...</div>
+                                <div className="typing-indicator">
+                                    <div className="typing-dots">
+                                        <span></span><span></span><span></span>
+                                    </div>
+                                    typing
+                                </div>
                             )}
                             <div ref={endOfMessagesRef} />
                         </div>

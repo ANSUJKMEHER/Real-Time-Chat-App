@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { PhoneOff, Video, Mic, MicOff, VideoOff, Phone } from 'lucide-react';
+import { PhoneOff, Video, Mic, MicOff, VideoOff, Phone, Clock } from 'lucide-react';
 
 const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose }) => {
     const [localStream, setLocalStream] = useState(null);
@@ -8,6 +8,8 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
     const [callEnded, setCallEnded] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
+    const [callDuration, setCallDuration] = useState(0);
+    const timerRef = useRef(null);
 
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
@@ -57,6 +59,8 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
         socket.on('call_accepted', async (signal) => {
             setCallAccepted(true);
             setStatus('connected');
+            // Start call timer
+            timerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
             if (connectionRef.current) {
                 await connectionRef.current.setRemoteDescription(new RTCSessionDescription(signal));
                 flushIceCandidates();
@@ -92,6 +96,7 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
             if (connectionRef.current) {
                 connectionRef.current.close();
             }
+            if (timerRef.current) clearInterval(timerRef.current);
         };
     }, []);
 
@@ -153,6 +158,8 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
     const answerCall = async () => {
         setCallAccepted(true);
         setStatus('connected');
+        // Start call timer
+        timerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
 
         const peer = createPeerConnection(streamRef.current, false, callData.from);
 
@@ -196,72 +203,79 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
             streamRef.current = null;
         }
 
+        if (timerRef.current) clearInterval(timerRef.current);
+
         onClose();
     };
 
     const toggleMute = () => {
-        if (localStream) {
-            const audioTrack = localStream.getAudioTracks()[0];
-            audioTrack.enabled = !audioTrack.enabled;
-            setIsMuted(!audioTrack.enabled);
+        if (streamRef.current) {
+            const audioTrack = streamRef.current.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                setIsMuted(!audioTrack.enabled);
+            }
         }
     };
 
     const toggleVideo = () => {
-        if (localStream) {
-            const videoTrack = localStream.getVideoTracks()[0];
-            videoTrack.enabled = !videoTrack.enabled;
-            setIsVideoOff(!videoTrack.enabled);
+        if (streamRef.current) {
+            const videoTrack = streamRef.current.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = !videoTrack.enabled;
+                setIsVideoOff(!videoTrack.enabled);
+            }
         }
     };
+
+    const formatTime = (seconds) => {
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    };
+
+    const remoteName = remoteUser ? remoteUser.name : callData?.name || 'Unknown';
+    const remoteInitial = remoteName.charAt(0).toUpperCase();
 
     return (
         <div className="video-modal-overlay">
             <div className="video-modal-content">
+                {/* Video Call Grid */}
                 <div className={`video-grid ${callAccepted && !callEnded ? 'connected' : ''}`} style={{ display: callType === 'video' ? 'flex' : 'none' }}>
-                    {/* Local Video */}
                     <div className="video-wrapper local-video">
                         <video playsInline muted ref={localVideoRef} autoPlay />
                         <div className="video-label">You</div>
                     </div>
-
-                    {/* Remote Video (Only shows when connected) */}
                     {callAccepted && !callEnded && (
                         <div className="video-wrapper remote-video">
                             <video playsInline ref={remoteVideoRef} autoPlay />
-                            <div className="video-label">
-                                {remoteUser ? remoteUser.name : callData?.name}
-                            </div>
+                            <div className="video-label">{remoteName}</div>
                         </div>
                     )}
                 </div>
 
-                {/* Audio Call UI (Only shows for Audio calls) */}
+                {/* Audio Call UI */}
                 {callType === 'audio' && (
                     <div className="audio-call-ui">
-                        {/* Hidden video elements just to play the audio stream easily */}
                         <video playsInline muted ref={localVideoRef} autoPlay style={{ display: 'none' }} />
                         <video playsInline ref={remoteVideoRef} autoPlay style={{ display: 'none' }} />
-                        
                         <div className="audio-avatar-container">
                             <div className="pulse-ring audio-pulse"></div>
-                            <div className="audio-avatar">
-                                {(remoteUser ? remoteUser.name : callData?.name || 'U').charAt(0).toUpperCase()}
-                            </div>
+                            <div className="audio-avatar">{remoteInitial}</div>
                         </div>
-                        <h2 style={{ marginTop: '2rem', zIndex: 10, position: 'relative' }}>
-                            {remoteUser ? remoteUser.name : callData?.name}
-                        </h2>
-                        <div style={{ color: 'var(--text-muted)', marginTop: '0.5rem', zIndex: 10, position: 'relative' }}>
-                            {status === 'connected' ? 'Connected' : status === 'calling' ? 'Calling...' : 'Incoming...'}
+                        <h2 style={{ marginTop: '2rem', zIndex: 10, position: 'relative' }}>{remoteName}</h2>
+                        <div className="call-status-text">
+                            {status === 'connected' ? formatTime(callDuration) : status === 'calling' ? 'Calling…' : 'Incoming…'}
                         </div>
                     </div>
                 )}
 
-                {/* Incoming Call UI */}
+                {/* Incoming Call Overlay */}
                 {status === 'receiving' && !callAccepted && (
                     <div className="incoming-call-overlay">
-                        <h3>{callData.name} is calling...</h3>
+                        <div className="incoming-caller-avatar">{remoteInitial}</div>
+                        <h3>{callData.name} is calling…</h3>
+                        <p className="incoming-call-type">{callType === 'video' ? 'Video Call' : 'Voice Call'}</p>
                         <div className="call-actions">
                             <button onClick={answerCall} className="call-btn accept"><Phone size={24} /></button>
                             <button onClick={rejectCall} className="call-btn reject"><PhoneOff size={24} /></button>
@@ -269,27 +283,33 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
                     </div>
                 )}
 
-                {/* Calling UI */}
+                {/* Calling Overlay */}
                 {status === 'calling' && !callAccepted && (
                     <div className="calling-overlay">
-                        <h3>Calling {remoteUser?.name}...</h3>
-                        <div className="pulse-ring"></div>
-                        <button onClick={() => leaveCall(true)} className="call-btn reject"><PhoneOff size={24} /></button>
+                        <div className="calling-avatar-wrap">
+                            <div className="pulse-ring"></div>
+                            <div className="incoming-caller-avatar">{remoteInitial}</div>
+                        </div>
+                        <h3>Calling {remoteUser?.name}…</h3>
+                        <button onClick={() => leaveCall(true)} className="call-btn reject" style={{ marginTop: '1.5rem' }}><PhoneOff size={24} /></button>
                     </div>
                 )}
 
-                {/* Active Call Controls */}
+                {/* Connected Call Controls */}
                 {status === 'connected' && (
                     <div className="active-call-controls">
-                        <button onClick={toggleMute} className={`control-btn ${isMuted ? 'disabled' : ''}`}>
+                        {callType === 'video' && (
+                            <div className="call-timer">{formatTime(callDuration)}</div>
+                        )}
+                        <button onClick={toggleMute} className={`control-btn ${isMuted ? 'disabled' : ''}`} title={isMuted ? 'Unmute' : 'Mute'}>
                             {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
                         </button>
                         {callType === 'video' && (
-                            <button onClick={toggleVideo} className={`control-btn ${isVideoOff ? 'disabled' : ''}`}>
+                            <button onClick={toggleVideo} className={`control-btn ${isVideoOff ? 'disabled' : ''}`} title={isVideoOff ? 'Turn On Camera' : 'Turn Off Camera'}>
                                 {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
                             </button>
                         )}
-                        <button onClick={() => leaveCall(true)} className="control-btn end-call">
+                        <button onClick={() => leaveCall(true)} className="control-btn end-call" title="End Call">
                             <PhoneOff size={20} />
                         </button>
                     </div>
