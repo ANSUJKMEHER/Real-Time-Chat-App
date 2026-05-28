@@ -122,19 +122,19 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:global.stun.twilio.com:3478' },
                 { 
-                    urls: 'turn:openrelay.metered.ca:80',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
+                    urls: 'turn:realtime-chat.metered.live:80',
+                    username: 'c2a56244e04928c590cfbe65',
+                    credential: 'Z3aP6FEqJFQ5fugh'
                 },
                 { 
-                    urls: 'turn:openrelay.metered.ca:443',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
+                    urls: 'turn:realtime-chat.metered.live:443',
+                    username: 'c2a56244e04928c590cfbe65',
+                    credential: 'Z3aP6FEqJFQ5fugh'
                 },
                 { 
-                    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
+                    urls: 'turn:realtime-chat.metered.live:443?transport=tcp',
+                    username: 'c2a56244e04928c590cfbe65',
+                    credential: 'Z3aP6FEqJFQ5fugh'
                 }
             ]
         });
