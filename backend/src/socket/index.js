@@ -29,11 +29,15 @@ module.exports = (io) => {
     io.on('connection', (socket) => {
         console.log(`User connected socket_id: ${socket.id}, user_id: ${socket.user.id}`);
 
+        // Automatically join the user's own room on connection (critical for reconnects)
+        socket.join(socket.user.id);
+
         // Add to online users
         onlineUsers.set(socket.user.id, socket.id);
         io.emit('online_users', Array.from(onlineUsers.keys()));
 
         socket.on('setup', (userData) => {
+            // Client might still emit this, which is fine
             socket.join(userData.id);
             socket.emit('connected');
         });
