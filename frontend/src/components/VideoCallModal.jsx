@@ -121,20 +121,26 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:global.stun.twilio.com:3478' },
-                { 
-                    urls: 'turn:realtime-chat.metered.live:80',
+                { urls: 'stun:stun.relay.metered.ca:80' },
+                {
+                    urls: 'turn:global.relay.metered.ca:80',
                     username: 'c2a56244e04928c590cfbe65',
-                    credential: 'Z3aP6FEqJFQ5fugh'
+                    credential: 'Z3aP6FEqJFQ5fugh',
                 },
-                { 
-                    urls: 'turn:realtime-chat.metered.live:443',
+                {
+                    urls: 'turn:global.relay.metered.ca:80?transport=tcp',
                     username: 'c2a56244e04928c590cfbe65',
-                    credential: 'Z3aP6FEqJFQ5fugh'
+                    credential: 'Z3aP6FEqJFQ5fugh',
                 },
-                { 
-                    urls: 'turn:realtime-chat.metered.live:443?transport=tcp',
+                {
+                    urls: 'turn:global.relay.metered.ca:443',
                     username: 'c2a56244e04928c590cfbe65',
-                    credential: 'Z3aP6FEqJFQ5fugh'
+                    credential: 'Z3aP6FEqJFQ5fugh',
+                },
+                {
+                    urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+                    username: 'c2a56244e04928c590cfbe65',
+                    credential: 'Z3aP6FEqJFQ5fugh',
                 }
             ]
         });
