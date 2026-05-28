@@ -1052,7 +1052,15 @@ body {
 .video-wrapper video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+}
+
+.remote-video video {
+  object-fit: contain; /* Prevents chopping off the caller's face */
+  background: #000;
+}
+
+.local-video video {
+  object-fit: cover; /* Fills the small PiP box perfectly */
 }
 
 .video-label {

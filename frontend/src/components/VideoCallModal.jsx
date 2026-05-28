@@ -35,7 +35,12 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
 
     useEffect(() => {
         // Initialize Media
-        const videoConstraints = callType === 'video' ? { facingMode: 'user' } : false;
+        const videoConstraints = callType === 'video' ? { 
+            facingMode: 'user',
+            width: { ideal: 640 }, 
+            height: { ideal: 480 },
+            frameRate: { ideal: 24, max: 30 }
+        } : false;
         navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true })
             .then((stream) => {
                 setLocalStream(stream);
