@@ -308,9 +308,17 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
                     <div className="incoming-call-overlay">
                         <div className="incoming-caller-avatar">{remoteInitial}</div>
                         <h3>{callData.name} is calling…</h3>
-                        <p className="incoming-call-type">{callType === 'video' ? 'Video Call' : 'Voice Call'}</p>
+                        <h3>Incoming {callType === 'video' ? 'Video' : 'Voice'} Call</h3>
                         <div className="call-actions">
-                            <button onClick={answerCall} className="call-btn accept"><Phone size={24} /></button>
+                            <button 
+                                onClick={answerCall} 
+                                className="call-btn accept"
+                                disabled={!localStream}
+                                style={{ opacity: localStream ? 1 : 0.5, cursor: localStream ? 'pointer' : 'not-allowed' }}
+                                title={!localStream ? "Starting camera..." : "Accept"}
+                            >
+                                <Phone size={24} />
+                            </button>
                             <button onClick={rejectCall} className="call-btn reject"><PhoneOff size={24} /></button>
                         </div>
                     </div>
