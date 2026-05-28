@@ -108,6 +108,14 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
         }
     }, [remoteStream, callAccepted]);
 
+    // Sync local stream to video element to fix missing local video on the receiver side
+    useEffect(() => {
+        if (localVideoRef.current && localStream) {
+            localVideoRef.current.srcObject = localStream;
+            localVideoRef.current.play().catch(e => console.warn('Local play error:', e));
+        }
+    }, [localStream, callAccepted]);
+
     const createPeerConnection = (stream, isInitiator, remoteId) => {
         const peer = new RTCPeerConnection({
             iceServers: [
