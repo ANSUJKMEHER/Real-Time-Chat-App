@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.real_time_chat_app_xi_olive.twa",
+        "sha256_cert_fingerprints": ["91:58:B5:2B:CC:4C:4C:5C:8A:FE:36:38:4A:38:10:6A:60:4F:15:16:91:83:02:45:E4:87:03:E2:12:BC:AB:0B"]
+      }
+    }]
