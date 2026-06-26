@@ -113,3 +113,33 @@ exports.getMe = async (req, res, next) => {
         next(error);
     }
 };
+
+exports.resetPasswordCasual = async (req, res, next) => {
+    try {
+        const { email, newPassword } = req.body;
+
+        if (!email || !newPassword) {
+            return next(new AppError('Please provide email and new password', 400));
+        }
+
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) {
+            return next(new AppError('No user found with that email', 404));
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        await prisma.user.update({
+            where: { email },
+            data: { password: hashedPassword }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Password updated successfully'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
