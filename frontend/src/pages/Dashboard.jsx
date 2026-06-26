@@ -199,9 +199,13 @@ const Dashboard = () => {
                 body: formData
             });
             const data = await res.json();
+            if (data.error) {
+                throw new Error(data.error.message);
+            }
             return data.secure_url;
         } catch (error) {
             console.error('Cloudinary upload failed', error);
+            alert(`Image upload failed: ${error.message || 'Check your Cloudinary Upload Preset'}`);
             throw error;
         }
     };
@@ -254,7 +258,10 @@ const Dashboard = () => {
             setMessages([...messages, data.data]);
             fetchChats(); // Update order / last message
         } catch (error) {
-            console.error('Failed to send message');
+            console.error('Failed to send message', error);
+            if (!error.message?.includes('Cloudinary')) {
+                alert('Failed to send message. Please try again.');
+            }
         } finally {
             setIsUploading(false);
         }
