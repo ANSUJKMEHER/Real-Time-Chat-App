@@ -56,6 +56,11 @@ const Dashboard = () => {
         socket.on('connected', () => setSocketConnected(true));
         socket.on('online_users', (users) => setOnlineUsers(users));
         
+        // Request Notification Permission for native popups
+        if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+            Notification.requestPermission();
+        }
+
         // Listen for real-time chat updates
         socket.on('fetch_chats', () => {
             fetchChats();
@@ -66,6 +71,26 @@ const Dashboard = () => {
             setIncomingCall(data);
             setCallType(data.callType || 'video');
             setShowVideoCall(true);
+            
+            // Trigger a native phone popup/notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                    navigator.serviceWorker.ready.then((registration) => {
+                        registration.showNotification(`Incoming ${data.callType || 'video'} call`, {
+                            body: `${data.name} is calling you...`,
+                            icon: '/pwa-192x192.png',
+                            vibrate: [200, 100, 200, 100, 200, 100, 200],
+                            tag: 'incoming-call',
+                            requireInteraction: true
+                        });
+                    });
+                } catch (e) {
+                    new Notification(`Incoming ${data.callType || 'video'} call`, {
+                        body: `${data.name} is calling you...`,
+                        icon: '/pwa-192x192.png'
+                    });
+                }
+            }
         });
 
         return () => {
