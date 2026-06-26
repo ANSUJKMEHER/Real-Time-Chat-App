@@ -189,12 +189,15 @@ const Dashboard = () => {
 
     const handleImageUpload = async (file) => {
         const formData = new FormData();
+        const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dnhy9i2uk';
+        const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'chatting_app';
+        
         formData.append('file', file);
-        formData.append('upload_preset', 'chatting_app');
-        formData.append('cloud_name', 'dnhy9i2uk');
+        formData.append('upload_preset', uploadPreset);
+        formData.append('cloud_name', cloudName);
 
         try {
-            const res = await fetch('https://api.cloudinary.com/v1_1/dnhy9i2uk/image/upload', {
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
                 method: 'POST',
                 body: formData
             });
