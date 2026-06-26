@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ThemeContext } from '../App';
 import api from '../services/api';
 import { socket } from '../services/socket';
-import { LogOut, Send, MessageSquare, Users, Bell, User as UserIcon, Smile, UserPlus, Sun, Moon, MoreVertical, Phone, Video, ArrowLeft, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { LogOut, Send, MessageSquare, Users, Bell, User as UserIcon, Smile, UserPlus, Sun, Moon, MoreVertical, Phone, Video, ArrowLeft, Image as ImageIcon, Loader2, Reply, Download } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import VideoCallModal from '../components/VideoCallModal';
 
@@ -16,6 +16,7 @@ const Dashboard = () => {
     const [newMessage, setNewMessage] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [replyingTo, setReplyingTo] = useState(null);
     const [onlineUsers, setOnlineUsers] = useState([]);
     const [typing, setTyping] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
@@ -140,31 +141,38 @@ const Dashboard = () => {
         endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isTyping]);
 
-    const handleImageUpload = async (file) => {
-        if (!file) return null;
-        
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'unsigned_preset');
-        
+    const downloadImage = async (url, filename) => {
         try {
-            const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-            if (!cloudName) {
-                alert("Cloudinary cloud name is not set in .env");
-                return null;
-            }
-            
-            const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-            return data.secure_url;
-        } catch (err) {
-            console.error("Cloudinary upload error:", err);
-            alert("Failed to upload image.");
-            return null;
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename || 'download.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Download failed', error);
         }
+    };
+
+    const isDifferentDay = (date1, date2) => {
+        const d1 = new Date(date1);
+        const d2 = new Date(date2);
+        return d1.toDateString() !== d2.toDateString();
+    };
+
+    const formatDateSeparator = (dateString) => {
+        const date = new Date(dateString);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (date.toDateString() === today.toDateString()) return 'Today';
+        if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
     };
 
     const sendMessage = async (e) => {
@@ -182,13 +190,16 @@ const Dashboard = () => {
             }
 
             const content = newMessage;
+            const replyToId = replyingTo?.id || null;
             setNewMessage('');
             setSelectedImage(null);
+            setReplyingTo(null);
             
             const { data } = await api.post('/messages', {
                 content,
                 image: imageUrl,
-                chatId: selectedChat.id
+                chatId: selectedChat.id,
+                replyToId
             });
 
             socket.emit('new_message', data.data);
@@ -468,21 +479,49 @@ const Dashboard = () => {
                         <div className="messages-container">
                             {messages.map((m, i) => {
                                 const isOwn = m.senderId === user.id;
+                                const showDate = i === 0 || isDifferentDay(messages[i-1].createdAt, m.createdAt);
+                                
                                 return (
-                                    <div key={m.id || i} className={`message ${isOwn ? 'own' : 'other'}`}>
-                                        {!isOwn && selectedChat.isGroup && (
-                                            <div className="message-sender">{m.sender?.name}</div>
-                                        )}
-                                        {m.image && (
-                                            <div style={{ marginBottom: m.content ? '0.5rem' : '0' }}>
-                                                <img src={m.image} alt="attachment" style={{ maxWidth: '100%', borderRadius: '0.75rem', maxHeight: '250px', objectFit: 'contain' }} />
+                                    <React.Fragment key={m.id || i}>
+                                        {showDate && (
+                                            <div className="date-separator">
+                                                <span>{formatDateSeparator(m.createdAt)}</span>
                                             </div>
                                         )}
-                                        {m.content && <div>{m.content}</div>}
-                                        <div className="message-time">
-                                            {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        <div className={`message ${isOwn ? 'own' : 'other'}`}>
+                                            <button className="reply-btn" onClick={() => setReplyingTo(m)} title="Reply">
+                                                <Reply size={14} />
+                                            </button>
+                                            
+                                            {!isOwn && selectedChat.isGroup && (
+                                                <div className="message-sender">{m.sender?.name}</div>
+                                            )}
+
+                                            {m.replyTo && (
+                                                <div className="reply-block">
+                                                    <div style={{fontWeight: 600, fontSize: '0.75rem', marginBottom: '0.1rem'}}>
+                                                        {m.replyTo.sender?.name}
+                                                    </div>
+                                                    <div style={{whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                                                        {m.replyTo.content || (m.replyTo.image ? '📷 Photo' : 'Message')}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {m.image && (
+                                                <div className="image-container" style={{ marginBottom: m.content ? '0.5rem' : '0' }}>
+                                                    <img src={m.image} alt="attachment" style={{ maxWidth: '100%', borderRadius: '0.75rem', maxHeight: '250px', objectFit: 'contain', display: 'block' }} />
+                                                    <button className="image-download-btn" onClick={() => downloadImage(m.image, `image-${m.id}.png`)} title="Download Image">
+                                                        <Download size={16} />
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {m.content && <div>{m.content}</div>}
+                                            <div className="message-time">
+                                                {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
                                         </div>
-                                    </div>
+                                    </React.Fragment>
                                 );
                             })}
                             {isTyping && (
@@ -497,6 +536,19 @@ const Dashboard = () => {
                         </div>
 
                         <div className="message-input-area">
+                            {replyingTo && (
+                                <div className="reply-context">
+                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                        <div style={{fontWeight: 600, color: 'var(--accent)', marginBottom: '0.2rem', fontSize: '0.8rem'}}>Replying to {replyingTo.sender?.name}</div>
+                                        <div style={{color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.8rem'}}>
+                                            {replyingTo.content || (replyingTo.image ? '📷 Photo' : '')}
+                                        </div>
+                                    </div>
+                                    <div className="reply-close" onClick={() => setReplyingTo(null)} title="Cancel reply">
+                                        <div style={{ fontSize: '1.2rem', padding: '0 0.5rem' }}>&times;</div>
+                                    </div>
+                                </div>
+                            )}
                             {selectedImage && (
                                 <div style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)' }}>
                                     <div style={{ position: 'relative' }}>

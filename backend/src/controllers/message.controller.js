@@ -3,7 +3,7 @@ const AppError = require('../utils/errors');
 
 exports.sendMessage = async (req, res, next) => {
     try {
-        const { content, image, chatId } = req.body;
+        const { content, image, chatId, replyToId } = req.body;
 
         if ((!content && !image) || !chatId) {
             return next(new AppError('Invalid data passed into request', 400));
@@ -14,11 +14,13 @@ exports.sendMessage = async (req, res, next) => {
                 content: content || null,
                 image: image || null,
                 senderId: req.user.id,
-                chatId
+                chatId,
+                replyToId: replyToId || null
             },
             include: {
                 sender: { select: { id: true, name: true } },
-                chat: { include: { members: true } }
+                chat: { include: { members: true } },
+                replyTo: { include: { sender: { select: { id: true, name: true } } } }
             }
         });
 
@@ -35,7 +37,8 @@ exports.allMessages = async (req, res, next) => {
         const messages = await prisma.message.findMany({
             where: { chatId },
             include: {
-                sender: { select: { id: true, name: true, email: true } }
+                sender: { select: { id: true, name: true, email: true } },
+                replyTo: { include: { sender: { select: { id: true, name: true } } } }
             },
             orderBy: { createdAt: 'asc' }
         });

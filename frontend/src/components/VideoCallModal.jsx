@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { PhoneOff, Video, Mic, MicOff, VideoOff, Phone, Clock } from 'lucide-react';
+import { PhoneOff, Video, Mic, MicOff, VideoOff, Phone, Clock, MonitorUp, MonitorOff } from 'lucide-react';
 
 const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose }) => {
     const [localStream, setLocalStream] = useState(null);
@@ -8,6 +8,7 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
     const [callEnded, setCallEnded] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
     const [callDuration, setCallDuration] = useState(0);
     const timerRef = useRef(null);
 
@@ -15,6 +16,7 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
     const remoteVideoRef = useRef(null);
     const connectionRef = useRef(null);
     const streamRef = useRef(null);
+    const screenStreamRef = useRef(null);
     const pendingCandidates = useRef([]);
 
     // Helper to process queued ICE candidates
@@ -97,6 +99,9 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
             socket.off('call_rejected');
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach(track => track.stop());
+            }
+            if (screenStreamRef.current) {
+                screenStreamRef.current.getTracks().forEach(track => track.stop());
             }
             if (connectionRef.current) {
                 connectionRef.current.close();
@@ -251,6 +256,46 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
         }
     };
 
+    const toggleScreenShare = async () => {
+        if (!isScreenSharing) {
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                const screenTrack = screenStream.getVideoTracks()[0];
+                
+                screenTrack.onended = () => stopScreenShare();
+
+                if (connectionRef.current) {
+                    const senders = connectionRef.current.getSenders();
+                    const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                    if (videoSender) videoSender.replaceTrack(screenTrack);
+                }
+                
+                if (localVideoRef.current) localVideoRef.current.srcObject = screenStream;
+                screenStreamRef.current = screenStream;
+                setIsScreenSharing(true);
+            } catch (error) { console.error("Error sharing screen:", error); }
+        } else {
+            stopScreenShare();
+        }
+    };
+
+    const stopScreenShare = () => {
+        if (screenStreamRef.current) {
+            screenStreamRef.current.getTracks().forEach(track => track.stop());
+            screenStreamRef.current = null;
+        }
+        if (streamRef.current) {
+            const videoTrack = streamRef.current.getVideoTracks()[0];
+            if (connectionRef.current && videoTrack) {
+                const senders = connectionRef.current.getSenders();
+                const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                if (videoSender) videoSender.replaceTrack(videoTrack);
+            }
+            if (localVideoRef.current) localVideoRef.current.srcObject = streamRef.current;
+        }
+        setIsScreenSharing(false);
+    };
+
     const formatTime = (seconds) => {
         const m = Math.floor(seconds / 60).toString().padStart(2, '0');
         const s = (seconds % 60).toString().padStart(2, '0');
@@ -265,12 +310,10 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
             <div className="video-modal-content">
                 {/* Video Call Grid */}
                 <div className={`video-grid ${callAccepted && !callEnded ? 'connected' : ''}`} style={{ display: callType === 'video' ? 'flex' : 'none' }}>
-                    {/* Remote Video — always rendered so the ref is available for ontrack */}
                     <div className="video-wrapper remote-video" style={{ display: callAccepted && !callEnded ? 'flex' : 'none' }}>
                         <video playsInline ref={remoteVideoRef} autoPlay />
                         <div className="video-label">{remoteName}</div>
                     </div>
-                    {/* Local Video */}
                     <div className="video-wrapper local-video">
                         <video playsInline muted ref={localVideoRef} autoPlay />
                         <div className="video-label">You</div>
@@ -338,6 +381,11 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
                         {callType === 'video' && (
                             <button onClick={toggleVideo} className={`control-btn ${isVideoOff ? 'disabled' : ''}`} title={isVideoOff ? 'Turn On Camera' : 'Turn Off Camera'}>
                                 {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+                            </button>
+                        )}
+                        {callType === 'video' && (
+                            <button onClick={toggleScreenShare} className={`control-btn ${isScreenSharing ? 'active' : ''}`} title={isScreenSharing ? 'Stop Screen Share' : 'Share Screen'}>
+                                {isScreenSharing ? <MonitorOff size={20} /> : <MonitorUp size={20} />}
                             </button>
                         )}
                         <button onClick={() => leaveCall(true)} className="control-btn end-call" title="End Call">
