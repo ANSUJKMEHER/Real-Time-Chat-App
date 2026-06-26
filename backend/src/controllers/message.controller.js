@@ -3,15 +3,16 @@ const AppError = require('../utils/errors');
 
 exports.sendMessage = async (req, res, next) => {
     try {
-        const { content, chatId } = req.body;
+        const { content, image, chatId } = req.body;
 
-        if (!content || !chatId) {
+        if ((!content && !image) || !chatId) {
             return next(new AppError('Invalid data passed into request', 400));
         }
 
         const newMessage = await prisma.message.create({
             data: {
-                content,
+                content: content || null,
+                image: image || null,
                 senderId: req.user.id,
                 chatId
             },

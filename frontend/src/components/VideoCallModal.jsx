@@ -37,9 +37,9 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
         // Initialize Media
         const videoConstraints = callType === 'video' ? { 
             facingMode: 'user',
-            width: { ideal: 640 }, 
-            height: { ideal: 480 },
-            frameRate: { ideal: 24, max: 30 }
+            width: { ideal: 480 }, 
+            height: { ideal: 360 },
+            frameRate: { ideal: 15, max: 24 }
         } : false;
         navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true })
             .then((stream) => {
@@ -125,28 +125,7 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
         const peer = new RTCPeerConnection({
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' },
-                { urls: 'stun:stun.relay.metered.ca:80' },
-                {
-                    urls: 'turn:global.relay.metered.ca:80',
-                    username: 'c2a56244e04928c590cfbe65',
-                    credential: 'Z3aP6FEqJFQ5fugh',
-                },
-                {
-                    urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-                    username: 'c2a56244e04928c590cfbe65',
-                    credential: 'Z3aP6FEqJFQ5fugh',
-                },
-                {
-                    urls: 'turn:global.relay.metered.ca:443',
-                    username: 'c2a56244e04928c590cfbe65',
-                    credential: 'Z3aP6FEqJFQ5fugh',
-                },
-                {
-                    urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-                    username: 'c2a56244e04928c590cfbe65',
-                    credential: 'Z3aP6FEqJFQ5fugh',
-                }
+                { urls: 'stun:global.stun.twilio.com:3478' }
             ]
         });
 

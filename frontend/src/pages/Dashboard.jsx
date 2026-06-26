@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ThemeContext } from '../App';
 import api from '../services/api';
 import { socket } from '../services/socket';
-import { LogOut, Send, MessageSquare, Users, Bell, User as UserIcon, Smile, UserPlus, Sun, Moon, MoreVertical, Phone, Video, ArrowLeft } from 'lucide-react';
+import { LogOut, Send, MessageSquare, Users, Bell, User as UserIcon, Smile, UserPlus, Sun, Moon, MoreVertical, Phone, Video, ArrowLeft, Image as ImageIcon, Loader2 } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import VideoCallModal from '../components/VideoCallModal';
 
@@ -14,6 +14,8 @@ const Dashboard = () => {
     const [selectedChat, setSelectedChat] = useState(null);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState([]);
     const [typing, setTyping] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
@@ -46,6 +48,7 @@ const Dashboard = () => {
 
     const endOfMessagesRef = useRef(null);
     const typingTimeoutRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         socket.emit('setup', user);
@@ -137,18 +140,54 @@ const Dashboard = () => {
         endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isTyping]);
 
+    const handleImageUpload = async (file) => {
+        if (!file) return null;
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'unsigned_preset');
+        
+        try {
+            const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+            if (!cloudName) {
+                alert("Cloudinary cloud name is not set in .env");
+                return null;
+            }
+            
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            return data.secure_url;
+        } catch (err) {
+            console.error("Cloudinary upload error:", err);
+            alert("Failed to upload image.");
+            return null;
+        }
+    };
+
     const sendMessage = async (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !selectedChat) return;
+        if ((!newMessage.trim() && !selectedImage) || !selectedChat) return;
 
         socket.emit('stop_typing', selectedChat.id);
         setTyping(false);
 
         try {
+            setIsUploading(true);
+            let imageUrl = null;
+            if (selectedImage) {
+                imageUrl = await handleImageUpload(selectedImage);
+            }
+
             const content = newMessage;
             setNewMessage('');
+            setSelectedImage(null);
+            
             const { data } = await api.post('/messages', {
                 content,
+                image: imageUrl,
                 chatId: selectedChat.id
             });
 
@@ -157,6 +196,8 @@ const Dashboard = () => {
             fetchChats(); // Update order / last message
         } catch (error) {
             console.error('Failed to send message');
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -383,7 +424,7 @@ const Dashboard = () => {
                                     <div className="chat-name">{getChatName(chat)}</div>
                                     {chat.messages && chat.messages.length > 0 && (
                                         <div className="chat-last-msg">
-                                            {chat.messages[0].content}
+                                            {chat.messages[0].content || (chat.messages[0].image ? '📷 Photo' : '')}
                                         </div>
                                     )}
                                 </div>
@@ -432,7 +473,12 @@ const Dashboard = () => {
                                         {!isOwn && selectedChat.isGroup && (
                                             <div className="message-sender">{m.sender?.name}</div>
                                         )}
-                                        <div>{m.content}</div>
+                                        {m.image && (
+                                            <div style={{ marginBottom: m.content ? '0.5rem' : '0' }}>
+                                                <img src={m.image} alt="attachment" style={{ maxWidth: '100%', borderRadius: '0.75rem', maxHeight: '250px', objectFit: 'contain' }} />
+                                            </div>
+                                        )}
+                                        {m.content && <div>{m.content}</div>}
                                         <div className="message-time">
                                             {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
@@ -451,7 +497,37 @@ const Dashboard = () => {
                         </div>
 
                         <div className="message-input-area">
+                            {selectedImage && (
+                                <div style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <img src={URL.createObjectURL(selectedImage)} alt="preview" style={{ height: '60px', borderRadius: '0.5rem' }} />
+                                        <button 
+                                            onClick={() => setSelectedImage(null)} 
+                                            style={{ position: 'absolute', top: -5, right: -5, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: '50%', width: 20, height: 20, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '12px' }}>
+                                            &times;
+                                        </button>
+                                    </div>
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Image attached</div>
+                                </div>
+                            )}
                             <form onSubmit={sendMessage} className="input-form" style={{ position: 'relative' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="emoji-btn"
+                                    title="Attach Image"
+                                >
+                                    <ImageIcon size={20} />
+                                </button>
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    style={{ display: 'none' }} 
+                                    ref={fileInputRef} 
+                                    onChange={(e) => {
+                                        if (e.target.files[0]) setSelectedImage(e.target.files[0]);
+                                    }} 
+                                />
                                 <button
                                     type="button"
                                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -476,8 +552,8 @@ const Dashboard = () => {
                                     value={newMessage}
                                     onChange={typingHandler}
                                 />
-                                <button type="submit" className="send-btn" disabled={!newMessage.trim()}>
-                                    <Send size={18} />
+                                <button type="submit" className="send-btn" disabled={(!newMessage.trim() && !selectedImage) || isUploading}>
+                                    {isUploading ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
                                 </button>
                             </form>
                         </div>
