@@ -56,10 +56,14 @@ const Dashboard = () => {
         socket.on('connected', () => setSocketConnected(true));
         socket.on('online_users', (users) => setOnlineUsers(users));
         
-        // Request Notification Permission for native popups
-        if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-            Notification.requestPermission();
-        }
+        // Request Notification Permission on first user interaction
+        const handleFirstInteraction = () => {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+            document.removeEventListener('click', handleFirstInteraction);
+        };
+        document.addEventListener('click', handleFirstInteraction);
 
         // Listen for real-time chat updates
         socket.on('fetch_chats', () => {

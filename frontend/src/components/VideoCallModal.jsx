@@ -380,12 +380,12 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
                         </button>
                         {callType === 'video' && (
                             <button onClick={toggleVideo} className={`control-btn ${isVideoOff ? 'disabled' : ''}`} title={isVideoOff ? 'Turn On Camera' : 'Turn Off Camera'}>
-                                {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+                                {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
                             </button>
                         )}
-                        {callType === 'video' && (
-                            <button onClick={toggleScreenShare} className={`control-btn ${isScreenSharing ? 'active' : ''}`} title={isScreenSharing ? 'Stop Screen Share' : 'Share Screen'}>
-                                {isScreenSharing ? <MonitorOff size={20} /> : <MonitorUp size={20} />}
+                        {callType === 'video' && !(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && (
+                            <button onClick={toggleScreenShare} className={`control-btn ${isScreenSharing ? 'active' : ''}`} title={isScreenSharing ? 'Stop Sharing' : 'Share Screen'}>
+                                {isScreenSharing ? <MonitorOff size={24} /> : <MonitorUp size={24} />}
                             </button>
                         )}
                         <button onClick={() => leaveCall(true)} className="control-btn end-call" title="End Call">
