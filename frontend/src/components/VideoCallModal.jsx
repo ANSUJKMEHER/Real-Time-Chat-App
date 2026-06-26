@@ -37,12 +37,7 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
 
     useEffect(() => {
         // Initialize Media
-        const videoConstraints = callType === 'video' ? { 
-            facingMode: 'user',
-            width: { ideal: 480 }, 
-            height: { ideal: 360 },
-            frameRate: { ideal: 15, max: 24 }
-        } : false;
+        const videoConstraints = callType === 'video' ? { facingMode: 'user' } : false;
         navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true })
             .then((stream) => {
                 setLocalStream(stream);
@@ -309,16 +304,18 @@ const VideoCallModal = ({ user, socket, callData, remoteUser, callType, onClose 
         <div className="video-modal-overlay">
             <div className="video-modal-content">
                 {/* Video Call Grid */}
-                <div className={`video-grid ${callAccepted && !callEnded ? 'connected' : ''}`} style={{ display: callType === 'video' ? 'flex' : 'none' }}>
-                    <div className="video-wrapper remote-video" style={{ display: callAccepted && !callEnded ? 'flex' : 'none' }}>
-                        <video playsInline ref={remoteVideoRef} autoPlay />
-                        <div className="video-label">{remoteName}</div>
+                {callType === 'video' && (
+                    <div className={`video-grid ${callAccepted && !callEnded ? 'connected' : ''}`}>
+                        <div className="video-wrapper remote-video" style={{ display: callAccepted && !callEnded ? 'flex' : 'none' }}>
+                            <video playsInline ref={remoteVideoRef} autoPlay />
+                            <div className="video-label">{remoteName}</div>
+                        </div>
+                        <div className="video-wrapper local-video">
+                            <video playsInline muted ref={localVideoRef} autoPlay />
+                            <div className="video-label">You</div>
+                        </div>
                     </div>
-                    <div className="video-wrapper local-video">
-                        <video playsInline muted ref={localVideoRef} autoPlay />
-                        <div className="video-label">You</div>
-                    </div>
-                </div>
+                )}
 
                 {/* Audio Call UI */}
                 {callType === 'audio' && (

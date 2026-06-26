@@ -187,6 +187,25 @@ const Dashboard = () => {
         }
     };
 
+    const handleImageUpload = async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', 'chatting_app');
+        formData.append('cloud_name', 'dnhy9i2uk');
+
+        try {
+            const res = await fetch('https://api.cloudinary.com/v1_1/dnhy9i2uk/image/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            return data.secure_url;
+        } catch (error) {
+            console.error('Cloudinary upload failed', error);
+            throw error;
+        }
+    };
+
     const isDifferentDay = (date1, date2) => {
         const d1 = new Date(date1);
         const d2 = new Date(date2);
