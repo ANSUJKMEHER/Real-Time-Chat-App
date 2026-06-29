@@ -8,6 +8,7 @@
   A production-ready, full-stack real-time chat application with <strong>video & voice calling</strong>, <strong>image sharing</strong>, <strong>group chats</strong>, and <strong>PWA support</strong> — built with modern web technologies.
 </p>
 
+
 <p align="center">
   <img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen?style=flat-square&logo=node.js" alt="Node.js" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React" />
